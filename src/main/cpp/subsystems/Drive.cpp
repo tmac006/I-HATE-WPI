@@ -54,6 +54,12 @@ void Drive::AddVisionMeasurement(const frc::Pose2d& measurement,
   swerveDrive.AddVisionMeasurement(measurement, timestamp, stdDevs);
 }
 
+void Drive::AddSingleTagVisionMeasurement(const frc::Pose2d& measurement,
+                                          units::second_t timestamp,
+                                          const Eigen::Vector3d& stdDevs) {
+  swerveDrive.AddSingleTagVisionMeasurement(measurement, timestamp, stdDevs);
+}
+
 frc2::CommandPtr Drive::DriveTeleop(
     std::function<units::meters_per_second_t()> xVel,
     std::function<units::meters_per_second_t()> yVel,
@@ -78,11 +84,14 @@ frc2::CommandPtr Drive::DriveRobotRel(
       .WithName("DriveRobotRel");
 }
 
-frc2::CommandPtr Drive::DriveToPose(std::function<frc::Pose2d()> goalPose) {
+frc2::CommandPtr Drive::DriveToPose(std::function<frc::Pose2d()> goalPose,
+                                    bool useSingleTagEstimator) {
   return frc2::cmd::Sequence(
              frc2::cmd::RunOnce(
-                 [this, goalPose] {
-                   frc::Pose2d currentPose = GetRobotPose();
+                 [this, goalPose, useSingleTagEstimator] {
+                   frc::Pose2d currentPose =
+                       useSingleTagEstimator ? swerveDrive.GetSingleTagPose()
+                                             : GetRobotPose();
                    frc::ChassisSpeeds currentSpeeds =
                        swerveDrive.GetFieldRelativeSpeeds();
                    xPoseController.Reset(currentPose.Translation().X(),
@@ -108,18 +117,24 @@ frc2::CommandPtr Drive::DriveToPose(std::function<frc::Pose2d()> goalPose) {
                    thetaController.SetTolerance(
                        consts::swerve::pathplanning::rotationalPIDTolerance,
                        consts::swerve::pathplanning::rotationalVelPIDTolerance);
-                   pidPoseSetpointPub.Set(goalPose());
+                   pidPoseGoalPub.Set(goalPose());
                  },
                  {this})
                  .WithName("PIDToPose Init"),
              frc2::cmd::Run(
-                 [this, goalPose] {
-                   frc::Pose2d currentPose = GetRobotPose();
+                 [this, goalPose, useSingleTagEstimator] {
+                   frc::Pose2d currentPose =
+                       useSingleTagEstimator ? swerveDrive.GetSingleTagPose()
+                                             : GetRobotPose();
 
                    xPoseController.SetGoal(goalPose().X());
                    yPoseController.SetGoal(goalPose().Y());
                    thetaController.SetGoal(goalPose().Rotation().Radians());
-                   pidPoseSetpointPub.Set(goalPose());
+                   pidPoseGoalPub.Set(goalPose());
+                   pidPoseSetpointPub.Set(
+                       frc::Pose2d{xPoseController.GetSetpoint().position,
+                                   yPoseController.GetSetpoint().position,
+                                   thetaController.GetSetpoint().position});
 
                    units::meters_per_second_t xSpeed{xPoseController.Calculate(
                        currentPose.Translation().X())};
@@ -134,50 +149,60 @@ frc2::CommandPtr Drive::DriveToPose(std::function<frc::Pose2d()> goalPose) {
                  },
                  {this})
                  .Until([this] {
-                   return xPoseController.AtGoal() &&
-                          yPoseController.AtGoal() && thetaController.AtGoal();
+                   bool isAtGoal = xPoseController.AtGoal() &&
+                                   yPoseController.AtGoal() &&
+                                   thetaController.AtGoal();
+                   isAtGoalPosePub.Set(isAtGoal);
+                   return isAtGoal;
                  })
                  .WithName("PIDToPose Run"),
-             frc2::cmd::Run([this] {
+             frc2::cmd::RunOnce([this] {
                swerveDrive.Drive(0_mps, 0_mps, 0_deg_per_s, false);
              }).WithName("PIDToPose Stop"))
       .WithName("PIDToPose");
 }
 
 frc2::CommandPtr Drive::AlignToAlgae() {
-  return DriveToPose([this] {
-    if (str::IsOnRed()) {
-      return pathplanner::FlippingUtil::flipFieldPose(
-          importantPoses[WhatAlgaeToGoTo(WhatReefZoneAmIIn())]);
+  return DriveToPose(
+      [this] {
+        if (str::IsOnRed()) {
+          return pathplanner::FlippingUtil::flipFieldPose(
+              importantPoses[WhatAlgaeToGoTo(WhatReefZoneAmIIn())]);
 
-    } else {
-      return importantPoses[WhatAlgaeToGoTo(WhatReefZoneAmIIn())];
-    }
-  });
+        } else {
+          return importantPoses[WhatAlgaeToGoTo(WhatReefZoneAmIIn())];
+        }
+      },
+      true);
 }
 
 frc2::CommandPtr Drive::AlignToProcessor() {
-  return DriveToPose([this] {
-    if (str::IsOnRed()) {
-      return pathplanner::FlippingUtil::flipFieldPose(
-          importantPoses["Process"]);
+  return DriveToPose(
+      [this] {
+        if (str::IsOnRed()) {
+          return pathplanner::FlippingUtil::flipFieldPose(
+              importantPoses["Process"]);
 
-    } else {
-      return importantPoses["Process"];
-    }
-  });
+        } else {
+          return importantPoses["Process"];
+        }
+      },
+      false);
 }
 
 frc2::CommandPtr Drive::AlignToReef(std::function<bool()> leftSide) {
-  return DriveToPose([this, leftSide] {
-    if (str::IsOnRed()) {
-      return pathplanner::FlippingUtil::flipFieldPose(
-          importantPoses[WhatPoleToGoTo(WhatReefZoneAmIIn(), leftSide())]);
+  return DriveToPose(
+      [this, leftSide] {
+        if (str::IsOnRed()) {
+          return pathplanner::FlippingUtil::flipFieldPose(
+              importantPoses[WhatPoleToGoTo(WhatReefZoneAmIIn(), leftSide())]);
 
-    } else {
-      return importantPoses[WhatPoleToGoTo(WhatReefZoneAmIIn(), leftSide())];
-    }
-  });
+        } else {
+          return importantPoses[WhatPoleToGoTo(WhatReefZoneAmIIn(),
+                                               leftSide())];
+        }
+      },
+      true);
 }
 
 std::string Drive::WhatPoleToGoTo(int zone, bool leftOrRight) {

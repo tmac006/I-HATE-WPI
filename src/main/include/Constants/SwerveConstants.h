@@ -15,23 +15,23 @@ namespace consts::swerve {
 inline constexpr units::hertz_t ODOM_UPDATE_RATE = 250_Hz;
 
 namespace can_ids {
-inline constexpr int FL_DRIVE = 11;
-inline constexpr int FL_STEER = 10;
-inline constexpr int FL_ENC = 12;
+inline constexpr int FL_DRIVE = 2;
+inline constexpr int FL_STEER = 3;
+inline constexpr int FL_ENC = 4;
 
-inline constexpr int FR_DRIVE = 21;
-inline constexpr int FR_STEER = 20;
-inline constexpr int FR_ENC = 22;
+inline constexpr int FR_DRIVE = 5;
+inline constexpr int FR_STEER = 6;
+inline constexpr int FR_ENC = 7;
 
-inline constexpr int BL_DRIVE = 41;
-inline constexpr int BL_STEER = 40;
-inline constexpr int BL_ENC = 42;
+inline constexpr int BL_DRIVE = 8;
+inline constexpr int BL_STEER = 9;
+inline constexpr int BL_ENC = 10;
 
-inline constexpr int BR_DRIVE = 31;
-inline constexpr int BR_STEER = 30;
-inline constexpr int BR_ENC = 32;
+inline constexpr int BR_DRIVE = 11;
+inline constexpr int BR_STEER = 12;
+inline constexpr int BR_ENC = 13;
 
-inline constexpr int IMU = 1;
+inline constexpr int IMU = 14;
 }  // namespace can_ids
 
 namespace current_limits {
@@ -43,16 +43,17 @@ inline constexpr units::ampere_t DRIVE_STATOR_LIMIT = 60_A;
 
 namespace physical {
 inline constexpr frc::DCMotor DRIVE_MOTOR = frc::DCMotor::KrakenX60FOC(1);
-inline constexpr frc::DCMotor STEER_MOTOR = frc::DCMotor::KrakenX60FOC(1);
+inline constexpr frc::DCMotor STEER_MOTOR = frc::DCMotor::Falcon500FOC(1);
 
-inline constexpr units::scalar_t STEER_GEARING = 7.363636363636365;
-// L3
-inline constexpr units::scalar_t DRIVE_GEARING = 15.42857142857143;
-inline constexpr units::scalar_t COUPLING_RATIO = 3.8181818181818183;
-inline constexpr units::meter_t WHEEL_RADIUS = 2.167_in;
+inline constexpr units::scalar_t STEER_GEARING = (50.0 / 14.0) * (60.0 / 10.0);
+// L2
+inline constexpr units::scalar_t DRIVE_GEARING =
+    (50.0 / 14.0) * (17.0 / 27.0) * (45.0 / 15.0);
+inline constexpr units::scalar_t COUPLING_RATIO = (50.0 / 14.0);
+inline constexpr units::meter_t WHEEL_RADIUS = 1.9154_in;
 
-inline constexpr units::meter_t WHEELBASE_WIDTH = 20_in;
-inline constexpr units::meter_t WHEELBASE_LENGTH = 20_in;
+inline constexpr units::meter_t WHEELBASE_WIDTH = 22.75_in;
+inline constexpr units::meter_t WHEELBASE_LENGTH = 22.75_in;
 
 inline const units::meter_t DRIVEBASE_RADIUS{
     units::math::hypot(WHEELBASE_WIDTH / 2, WHEELBASE_LENGTH / 2)};
@@ -68,8 +69,8 @@ inline frc::SwerveDriveKinematics<4> KINEMATICS{
     MODULE_LOCATIONS[3]};
 
 // Total outside frame size
-inline constexpr units::meter_t DRIVEBASE_WIDTH = 29_in;
-inline constexpr units::meter_t DRIVEBASE_LENGTH = 29_in;
+inline constexpr units::meter_t DRIVEBASE_WIDTH = 28.44_in;
+inline constexpr units::meter_t DRIVEBASE_LENGTH = 28.44_in;
 
 // 3/4 in plywood + 2.5 in diameter pool noodles + 1/8 slop
 inline constexpr units::meter_t BUMPER_THICKNESS = .75_in + 2.5_in + .125_in;
@@ -80,15 +81,16 @@ inline constexpr units::meter_t TOTAL_WIDTH =
 inline constexpr units::meter_t TOTAL_LENGTH =
     DRIVEBASE_LENGTH + (2 * BUMPER_THICKNESS);
 
+inline constexpr units::meter_t MANIP_CENTER_OFFSET = 4.5_in;
 
 inline constexpr units::degree_t IMU_MOUNT_ROLL = -0.3409_deg;
 inline constexpr units::degree_t IMU_MOUNT_PITCH = 0.3149_deg;
 inline constexpr units::degree_t IMU_MOUNT_YAW = 0.0131_deg;
 
-inline constexpr units::turn_t FL_ENC_OFFSET = 0.15234375_tr;
-inline constexpr units::turn_t FR_ENC_OFFSET = 0.4873046875_tr;
-inline constexpr units::turn_t BL_ENC_OFFSET = -0.219482421875_tr;
-inline constexpr units::turn_t BR_ENC_OFFSET = 0.17236328125_tr;
+inline constexpr units::turn_t FL_ENC_OFFSET = 0.296875_tr;
+inline constexpr units::turn_t FR_ENC_OFFSET = -0.046387_tr;
+inline constexpr units::turn_t BL_ENC_OFFSET = -0.396973_tr;
+inline constexpr units::turn_t BR_ENC_OFFSET = 0.124512_tr;
 
 inline constexpr bool FL_STEER_INVERT = true;
 inline constexpr bool FR_STEER_INVERT = true;
@@ -146,7 +148,7 @@ inline constexpr units::meters_per_second_t DRIVE_MAX_SPEED =
 inline constexpr units::radians_per_second_t MAX_ROT_SPEED = 540_deg_per_s;
 inline constexpr units::radians_per_second_squared_t MAX_ROT_ACCEL =
     720_deg_per_s_sq;
-inline constexpr units::meters_per_second_squared_t MAX_ACCEL = 2000_fps_sq;
+inline constexpr units::meters_per_second_squared_t MAX_ACCEL = 10_fps_sq;
 
 }  // namespace physical
 
@@ -193,10 +195,10 @@ inline constexpr units::meter_t DYNAMIC_REPLAN_THRESHOLD_SPIKE = 1_ft;
 inline static pathplanner::RobotConfig config =
     pathplanner::RobotConfig::fromGUISettings();
 
-inline constexpr units::meter_t translationalPIDTolerance = .5_in;
+inline constexpr units::meter_t translationalPIDTolerance = 1_in;
 inline constexpr units::meters_per_second_t translationalVelPIDTolerance =
     .25_fps;
-inline constexpr units::radian_t rotationalPIDTolerance = 1_deg;
+inline constexpr units::radian_t rotationalPIDTolerance = 3_deg;
 inline constexpr units::radians_per_second_t rotationalVelPIDTolerance =
     1_deg_per_s;
 inline constexpr units::meters_per_second_t translationalVelPIDDeadband =

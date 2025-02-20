@@ -9,8 +9,7 @@
 
 #include <ctre/phoenix6/SignalLogger.hpp>
 
-#include "Constants/Constants.h"
-#include "Constants/SwerveConstants.h"
+#include "constants/SwerveConstants.h"
 #include "frc/geometry/Pose2d.h"
 #include "frc/smartdashboard/SmartDashboard.h"
 #include "photon/PhotonPoseEstimator.h"
@@ -26,6 +25,8 @@ Robot::Robot() {
               1 / consts::swerve::ODOM_UPDATE_RATE, 2_ms);
   wpi::WebServer::GetInstance().Start(5800,
                                       frc::filesystem::GetDeployDirectory());
+  m_container.GetSuperStructureDisplay().Draw();
+  pdp.ClearStickyFaults();
 }
 
 void Robot::RobotPeriodic() {
@@ -39,6 +40,9 @@ void Robot::RobotPeriodic() {
   lastTotalLoopTime = now;
   matchTimePub.Set(frc::DriverStation::GetMatchTime().value());
   battVoltagePub.Set(frc::RobotController::GetBatteryVoltage().value());
+
+  m_container.GetSuperStructureDisplay().SetRobotPose(
+      m_container.GetDrive().GetRobotPose());
 }
 
 void Robot::SimulationPeriodic() {
@@ -47,46 +51,16 @@ void Robot::SimulationPeriodic() {
 }
 
 void Robot::UpdateVision() {
+  auto robotPose = frc::Pose3d{m_container.GetDrive().GetRobotPose()};
   m_container.GetVision().UpdateYaws(m_container.GetDrive().GetGyroYaw(),
                                      frc::Timer::GetFPGATimestamp());
-  auto visionEstimates = m_container.GetVision().GetCameraEstimatedPoses(
-      frc::Pose3d{m_container.GetDrive().GetRobotPose()});
-
-  auto stdDevs = m_container.GetVision().GetPoseStdDevs(visionEstimates);
-
-  frc::Pose3d pose = frc::Pose3d{m_container.GetDrive().GetRobotPose()};
-
-  m_container.GetVision().UpdateCameraPositionVis(pose);
-
-  int i = 0;
-  for (const auto& est : visionEstimates) {
-    if (est.has_value()) {
-      // TRICKING PHOTON STRATS
-      // WE ONLY WANT SINGLE TAG RESULTS TO BE ADDED IF THEY ARE OUR TRIG METHOD
-       if (est->targetsUsed.size() == 1) {
-        if (est->strategy == photon::PoseStrategy::CLOSEST_TO_CAMERA_HEIGHT)
-        {
-          m_container.GetDrive().AddVisionMeasurement(
-              est.value().estimatedPose.ToPose2d(), est.value().timestamp,
-              stdDevs[i].value());
-        }
-      } else {
-        m_container.GetDrive().AddVisionMeasurement(
-            est.value().estimatedPose.ToPose2d(), est.value().timestamp,
-            stdDevs[i].value());
-      }
-    }
-    i++;
-  }
+  m_container.GetVision().UpdatePoseEstimators(robotPose);
+  m_container.GetVision().UpdateCameraPositionVis(robotPose);
 }
 
-void Robot::DisabledInit() {
- 
-}
+void Robot::DisabledInit() {}
 
-void Robot::DisabledPeriodic() {
-
-}
+void Robot::DisabledPeriodic() {}
 
 void Robot::DisabledExit() {}
 

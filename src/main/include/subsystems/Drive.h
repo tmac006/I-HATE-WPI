@@ -13,6 +13,7 @@
 #include "ctre/phoenix6/SignalLogger.hpp"
 #include "frc/geometry/Pose2d.h"
 #include "frc2/command/CommandPtr.h"
+#include "networktables/BooleanTopic.h"
 #include "str/swerve/SwerveDrive.h"
 #include "str/swerve/SwerveModuleHelpers.h"
 #include "units/angle.h"
@@ -34,6 +35,9 @@ class Drive : public frc2::SubsystemBase {
   void AddVisionMeasurement(const frc::Pose2d& measurement,
                             units::second_t timestamp,
                             const Eigen::Vector3d& stdDevs);
+  void AddSingleTagVisionMeasurement(const frc::Pose2d& measurement,
+                                     units::second_t timestamp,
+                                     const Eigen::Vector3d& stdDevs);
 
   frc2::CommandPtr DriveTeleop(
       std::function<units::meters_per_second_t()> xVel,
@@ -48,7 +52,8 @@ class Drive : public frc2::SubsystemBase {
   frc2::CommandPtr AlignToReef(std::function<bool()> leftSide);
   frc2::CommandPtr AlignToAlgae();
   frc2::CommandPtr AlignToProcessor();
-  frc2::CommandPtr DriveToPose(std::function<frc::Pose2d()> goalPose);
+  frc2::CommandPtr DriveToPose(std::function<frc::Pose2d()> goalPose,
+                               bool useSingleTagEstimator);
 
   frc2::CommandPtr SysIdSteerQuasistaticVoltage(frc2::sysid::Direction dir);
   frc2::CommandPtr SysIdSteerDynamicVoltage(frc2::sysid::Direction dir);
@@ -93,8 +98,12 @@ class Drive : public frc2::SubsystemBase {
 
   std::shared_ptr<nt::NetworkTable> nt{
       nt::NetworkTableInstance::GetDefault().GetTable("Swerve")};
+  nt::StructPublisher<frc::Pose2d> pidPoseGoalPub{
+      nt->GetStructTopic<frc::Pose2d>("PIDToPoseGoal").Publish()};
   nt::StructPublisher<frc::Pose2d> pidPoseSetpointPub{
       nt->GetStructTopic<frc::Pose2d>("PIDToPoseSetpoint").Publish()};
+  nt::BooleanPublisher isAtGoalPosePub{
+      nt->GetBooleanTopic("PIDToPoseIsAtGoal").Publish()};
 
   str::swerve::WheelRadiusCharData wheelRadiusData{};
 

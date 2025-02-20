@@ -36,6 +36,15 @@ void RobotContainer::ConfigureBindings() {
                consts::swerve::physical::MAX_ROT_SPEED;
       }));
 
+
+  //   driverJoystick.LeftTrigger().WhileTrue(frc2::cmd::Either(
+  //       driveSub.AlignToAlgae(), driveSub.AlignToReef([] { return true; }),
+  //       [this] { return !manipSub.HasCoral(); }));
+  //   driverJoystick.RightTrigger().WhileTrue(frc2::cmd::Either(
+  //       driveSub.AlignToProcessor(), driveSub.AlignToReef([] { return false;
+  //       }), [this] { return manipSub.HasAlgae(); }));
+
+ 
 }
 
 void RobotContainer::ConfigureSysIdBinds() {
@@ -45,16 +54,7 @@ void RobotContainer::ConfigureSysIdBinds() {
   tuningTable->PutBoolean("SteerSysIdTorqueCurrent", false);
   tuningTable->PutBoolean("DriveSysId", false);
   tuningTable->PutBoolean("WheelRadius", false);
-  tuningTable->PutBoolean("ElevatorPidTuning", false);
-  tuningTable->PutBoolean("ElevatorSysIdVolts", false);
-  tuningTable->PutBoolean("PivotPidTuning", false);
-  tuningTable->PutBoolean("PivotSysIdVolts", false);
-  tuningTable->PutBoolean("AlgaePivotSysIdVolts", false);
-  tuningTable->PutBoolean("AlgaePivotPidTuning", false);
-  tuningTable->PutBoolean("CoastElevator", false);
-  tuningTable->PutBoolean("CoastPivot", false);
-  tuningTable->PutBoolean("Quasistatic", true);
-  tuningTable->PutBoolean("Forward", true);
+
 
   steerTuneBtn.OnTrue(
       driveSub.TuneSteerPID([this] { return !steerTuneBtn.Get(); }));
@@ -136,22 +136,17 @@ frc2::CommandPtr RobotContainer::WheelRadiusSysIdCommands(
 }
 
 frc2::Command* RobotContainer::GetAutonomousCommand() {
-  return nullptr;
-  // return autos.GetSelectedCommand();
+  return autos.GetSelectedCommand();
 }
 
 Drive& RobotContainer::GetDrive() {
   return driveSub;
 }
 
-
 str::vision::VisionSystem& RobotContainer::GetVision() {
   return vision;
 }
 
-frc2::Trigger RobotContainer::NoButtonsPressed() {
-  return frc2::Trigger{[this] {
-    return !driverJoystick.A().Get() && !driverJoystick.B().Get() &&
-           !driverJoystick.X().Get() && !driverJoystick.Y().Get();
-  }};
+str::SuperstructureDisplay& RobotContainer::GetSuperStructureDisplay() {
+  return display;
 }

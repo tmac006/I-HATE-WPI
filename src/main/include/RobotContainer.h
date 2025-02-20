@@ -12,8 +12,10 @@
 #include "Autos.h"
 #include "frc/geometry/Pose2d.h"
 #include "frc2/command/button/Trigger.h"
+#include "str/SuperstructureDisplay.h"
 #include "str/vision/VisionSystem.h"
 #include "subsystems/Drive.h"
+
 
 class RobotContainer {
  public:
@@ -22,8 +24,7 @@ class RobotContainer {
   frc2::Command* GetAutonomousCommand();
   Drive& GetDrive();
   str::vision::VisionSystem& GetVision();
-
-
+  str::SuperstructureDisplay& GetSuperStructureDisplay();
 
  private:
   void ConfigureBindings();
@@ -35,22 +36,26 @@ class RobotContainer {
   frc2::CommandPtr DriveSysIdCommands(std::function<bool()> fwd,
                                       std::function<bool()> quasistatic);
   frc2::CommandPtr WheelRadiusSysIdCommands(std::function<bool()> fwd);
-  frc2::CommandPtr ElevatorVoltsSysIdCommands(
-      std::function<bool()> fwd, std::function<bool()> quasistatic);
-  frc2::CommandPtr PivotVoltsSysIdCommands(std::function<bool()> fwd,
-                                           std::function<bool()> quasistatic);
-  frc2::CommandPtr AlgaeIntakePivotVoltsSysIdCommands(
-      std::function<bool()> fwd, std::function<bool()> quasistatic);
-  frc2::CommandPtr HandleReturnToNeutralPosition();
   frc2::Trigger NoButtonsPressed();
 
   frc2::CommandXboxController driverJoystick{0};
-  frc2::CommandXboxController operatorJoystick{1};
+
+  str::SuperstructureDisplay display{};
 
   Drive driveSub{};
+ 
 
-  str::vision::VisionSystem vision;
+  str::vision::VisionSystem vision{
+      [this](const frc::Pose2d& pose, units::second_t time,
+             const Eigen::Vector3d& stdDevs) {
+        driveSub.AddVisionMeasurement(pose, time, stdDevs);
+      },
+      [this](const frc::Pose2d& pose, units::second_t time,
+             const Eigen::Vector3d& stdDevs) {
+        driveSub.AddSingleTagVisionMeasurement(pose, time, stdDevs);
+      }};
 
+  Autos autos{driveSub};
 
   std::shared_ptr<nt::NetworkTable> tuningTable{
       nt::NetworkTableInstance::GetDefault().GetTable("Tuning")};
