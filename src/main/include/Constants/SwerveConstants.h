@@ -43,7 +43,7 @@ inline constexpr units::ampere_t DRIVE_STATOR_LIMIT = 60_A;
 
 namespace physical {
 inline constexpr frc::DCMotor DRIVE_MOTOR = frc::DCMotor::KrakenX60FOC(1);
-inline constexpr frc::DCMotor STEER_MOTOR = frc::DCMotor::Falcon500FOC(1);
+inline constexpr frc::DCMotor STEER_MOTOR = frc::DCMotor::KrakenX60FOC(1);
 
 inline constexpr units::scalar_t STEER_GEARING = (50.0 / 14.0) * (60.0 / 10.0);
 // L2
