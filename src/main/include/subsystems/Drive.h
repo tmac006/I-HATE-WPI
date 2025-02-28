@@ -6,9 +6,11 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
+#include "constants/Constants.h"
 #include "constants/SwerveConstants.h"
 #include "ctre/phoenix6/SignalLogger.hpp"
 #include "frc/geometry/Pose2d.h"
@@ -19,6 +21,7 @@
 #include "units/angle.h"
 #include "units/angular_velocity.h"
 #include "units/current.h"
+#include "units/length.h"
 #include "units/time.h"
 #include "units/velocity.h"
 
@@ -30,7 +33,9 @@ class Drive : public frc2::SubsystemBase {
   void UpdateOdom();
   frc::Pose2d GetRobotPose() const;
   frc::Pose2d GetOdomPose() const;
-  units::radian_t GetGyroYaw() const { return swerveDrive.GetYawFromImu(); }
+  units::radian_t GetGyroYaw() const {
+    return swerveDrive.GetOdomPose().Rotation().Radians();
+  }
   void SetupPathplanner();
   void AddVisionMeasurement(const frc::Pose2d& measurement,
                             units::second_t timestamp,
@@ -49,6 +54,7 @@ class Drive : public frc2::SubsystemBase {
       std::function<units::meters_per_second_t()> yVel,
       std::function<units::radians_per_second_t()> omega);
 
+  frc2::CommandPtr AlignToReefSegment(std::function<bool()> leftSide, int zone);
   frc2::CommandPtr AlignToReef(std::function<bool()> leftSide);
   frc2::CommandPtr AlignToAlgae();
   frc2::CommandPtr AlignToProcessor();
@@ -148,18 +154,21 @@ class Drive : public frc2::SubsystemBase {
 
   frc2::sysid::SysIdRoutine driveSysid{
       frc2::sysid::Config{
-          (6_V / 1_s), 27_V, std::nullopt,
+          std::nullopt, std::nullopt, std::nullopt,
           [](frc::sysid::State state) {
             ctre::phoenix6::SignalLogger().WriteString(
                 "SysIdDrive_State",
                 frc::sysid::SysIdRoutineLog::StateEnumToString(state));
           }},
-      frc2::sysid::Mechanism{[this](units::volt_t ampsToSend) {
-                               swerveDrive.SetCharacterizationAmpsDrive(
-                                   units::ampere_t{ampsToSend.value()});
+      frc2::sysid::Mechanism{[this](units::volt_t voltsToSend) {
+                               swerveDrive.SetCharacterizationVoltsDrive(
+                                   voltsToSend);
                              },
                              [this](frc::sysid::SysIdRoutineLog* log) {
-                               swerveDrive.LogDriveTorqueCurrent(log);
+                               swerveDrive.LogDriveVolts(log);
                              },
                              this, "swerve-drive"}};
+
+  units::meter_t lOffset{consts::yearspecific::CLAW_OFFSET_L};
+  units::meter_t rOffset{consts::yearspecific::CLAW_OFFSET_R};
 };

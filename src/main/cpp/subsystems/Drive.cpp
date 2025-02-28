@@ -9,9 +9,12 @@
 #include <numbers>
 #include <string>
 
+#include "constants/Constants.h"
 #include "constants/SwerveConstants.h"
 #include "frc/MathUtil.h"
 #include "frc/geometry/Pose2d.h"
+#include "frc/geometry/Rotation2d.h"
+#include "frc/geometry/Transform2d.h"
 #include "frc/geometry/Translation2d.h"
 #include "frc2/command/CommandPtr.h"
 #include "frc2/command/Commands.h"
@@ -20,16 +23,22 @@
 #include "str/DriverstationUtils.h"
 #include "str/swerve/SwerveModuleHelpers.h"
 #include "units/angle.h"
+#include "units/length.h"
 #include "util/choreovariables.h"
 
 Drive::Drive() {
   importantPoses = strchoreo::LoadPoses();
   SetupPathplanner();
+  frc::SmartDashboard::PutNumber("L OFFSET",
+                                 lOffset.convert<units::inches>().value());
+  frc::SmartDashboard::PutNumber("R OFFSET",
+                                 rOffset.convert<units::inches>().value());
 }
 
 void Drive::Periodic() {
   swerveDrive.UpdateNTEntries();
-  WhatReefZoneAmIIn();
+  lOffset = units::inch_t{frc::SmartDashboard::GetNumber("L OFFSET", 0)};
+  rOffset = units::inch_t{frc::SmartDashboard::GetNumber("R OFFSET", 0)};
 }
 
 void Drive::SimulationPeriodic() {
@@ -165,15 +174,20 @@ frc2::CommandPtr Drive::DriveToPose(std::function<frc::Pose2d()> goalPose,
 frc2::CommandPtr Drive::AlignToAlgae() {
   return DriveToPose(
       [this] {
-        if (str::IsOnRed()) {
-          return pathplanner::FlippingUtil::flipFieldPose(
-              importantPoses[WhatAlgaeToGoTo(WhatReefZoneAmIIn())]);
+        frc::Pose2d centerOfAlgae =
+            importantPoses[WhatAlgaeToGoTo(WhatReefZoneAmIIn())];
 
+        frc::Pose2d clawPos = centerOfAlgae;
+        clawPos = clawPos.TransformBy(
+            frc::Transform2d{0_m, lOffset, frc::Rotation2d{}});
+
+        if (str::IsOnRed()) {
+          return pathplanner::FlippingUtil::flipFieldPose(clawPos);
         } else {
-          return importantPoses[WhatAlgaeToGoTo(WhatReefZoneAmIIn())];
+          return clawPos;
         }
       },
-      true);
+      false);
 }
 
 frc2::CommandPtr Drive::AlignToProcessor() {
@@ -193,16 +207,64 @@ frc2::CommandPtr Drive::AlignToProcessor() {
 frc2::CommandPtr Drive::AlignToReef(std::function<bool()> leftSide) {
   return DriveToPose(
       [this, leftSide] {
-        if (str::IsOnRed()) {
-          return pathplanner::FlippingUtil::flipFieldPose(
-              importantPoses[WhatPoleToGoTo(WhatReefZoneAmIIn(), leftSide())]);
+        frc::Pose2d centerOfPole =
+            importantPoses[WhatPoleToGoTo(WhatReefZoneAmIIn(), leftSide())];
 
+        frc::Pose2d clawOnPole = centerOfPole;
+
+        if (str::IsOnRed()) {
+          if (leftSide()) {
+            clawOnPole = clawOnPole.TransformBy(
+                frc::Transform2d{0_m, rOffset, frc::Rotation2d{}});
+          } else {
+            clawOnPole = clawOnPole.TransformBy(
+                frc::Transform2d{0_m, lOffset, frc::Rotation2d{}});
+          }
+          return pathplanner::FlippingUtil::flipFieldPose(clawOnPole);
         } else {
-          return importantPoses[WhatPoleToGoTo(WhatReefZoneAmIIn(),
-                                               leftSide())];
+          if (leftSide()) {
+            clawOnPole = clawOnPole.TransformBy(
+                frc::Transform2d{0_m, lOffset, frc::Rotation2d{}});
+          } else {
+            clawOnPole = clawOnPole.TransformBy(
+                frc::Transform2d{0_m, rOffset, frc::Rotation2d{}});
+          }
+          return clawOnPole;
         }
       },
-      true);
+      false);
+}
+
+frc2::CommandPtr Drive::AlignToReefSegment(std::function<bool()> leftSide,
+                                           int zone) {
+  return DriveToPose(
+      [this, leftSide, zone] {
+        frc::Pose2d centerOfPole =
+            importantPoses[WhatPoleToGoTo(zone, leftSide())];
+
+        frc::Pose2d clawOnPole = centerOfPole;
+
+        if (str::IsOnRed()) {
+          if (leftSide()) {
+            clawOnPole = clawOnPole.TransformBy(
+                frc::Transform2d{0_m, rOffset, frc::Rotation2d{}});
+          } else {
+            clawOnPole = clawOnPole.TransformBy(
+                frc::Transform2d{0_m, lOffset, frc::Rotation2d{}});
+          }
+          return pathplanner::FlippingUtil::flipFieldPose(clawOnPole);
+        } else {
+          if (leftSide()) {
+            clawOnPole = clawOnPole.TransformBy(
+                frc::Transform2d{0_m, lOffset, frc::Rotation2d{}});
+          } else {
+            clawOnPole = clawOnPole.TransformBy(
+                frc::Transform2d{0_m, rOffset, frc::Rotation2d{}});
+          }
+          return clawOnPole;
+        }
+      },
+      false);
 }
 
 std::string Drive::WhatPoleToGoTo(int zone, bool leftOrRight) {
@@ -259,8 +321,9 @@ int Drive::WhatReefZoneAmIIn() {
     rotationAmount = 180_deg;
   }
 
-  units::radian_t angle = units::math::atan2(
-      GetRobotPose().Y() - reefCenter.Y(), GetRobotPose().X() - reefCenter.X());
+  units::radian_t angle =
+      units::math::atan2(swerveDrive.GetPose().Y() - reefCenter.Y(),
+                         swerveDrive.GetPose().X() - reefCenter.X());
 
   units::radian_t normalizedAngle =
       units::math::fmod(angle + units::radian_t{2 * std::numbers::pi},
@@ -278,6 +341,8 @@ int Drive::WhatReefZoneAmIIn() {
 }
 
 void Drive::SetupPathplanner() {
+  consts::swerve::pathplanning::config =
+      pathplanner::RobotConfig::fromGUISettings();
   ppControllers = std::make_shared<pathplanner::PPHolonomicDriveController>(
       pathplanner::PIDConstants{consts::swerve::pathplanning::POSE_P,
                                 consts::swerve::pathplanning::POSE_I,
@@ -433,17 +498,17 @@ frc2::CommandPtr Drive::TuneDrivePID(std::function<bool()> isDone) {
       frc2::cmd::Run(
           [this, tablePrefix] {
             str::swerve::DriveGains newGains{
-                str::gains::radial::turn_amp_ka_unit_t{
+                str::gains::radial::turn_volt_ka_unit_t{
                     frc::SmartDashboard::GetNumber(tablePrefix + "kA", 0)},
-                str::gains::radial::turn_amp_kv_unit_t{
+                str::gains::radial::turn_volt_kv_unit_t{
                     frc::SmartDashboard::GetNumber(tablePrefix + "kV", 0)},
-                units::ampere_t{
+                units::volt_t{
                     frc::SmartDashboard::GetNumber(tablePrefix + "kS", 0)},
-                str::gains::radial::turn_amp_kp_unit_t{
+                str::gains::radial::turn_volt_kp_unit_t{
                     frc::SmartDashboard::GetNumber(tablePrefix + "kP", 0)},
-                str::gains::radial::turn_amp_ki_unit_t{
+                str::gains::radial::turn_volt_ki_unit_t{
                     frc::SmartDashboard::GetNumber(tablePrefix + "kI", 0)},
-                str::gains::radial::turn_amp_kd_unit_t{
+                str::gains::radial::turn_volt_kd_unit_t{
                     frc::SmartDashboard::GetNumber(tablePrefix + "kD", 0)}};
 
             if (newGains != swerveDrive.GetDriveGains()) {

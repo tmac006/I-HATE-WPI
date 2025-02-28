@@ -3,6 +3,7 @@
 #include <frc/MathUtil.h>
 #include <frc2/command/Commands.h>
 #include <frc2/command/button/RobotModeTriggers.h>
+
 #include <cstddef>
 
 #include "constants/SwerveConstants.h"
@@ -33,18 +34,16 @@ void RobotContainer::ConfigureBindings() {
       },
       [this] {
         return frc::ApplyDeadband<double>(-driverJoystick.GetRightX(), .1) *
-               consts::swerve::physical::MAX_ROT_SPEED;
+               360_deg_per_s;
       }));
 
+//   driverJoystick.LeftTrigger().WhileTrue(frc2::cmd::Either(
+//       driveSub.AlignToAlgae(), driveSub.AlignToReef([] { return true; }),
+//       [this] { return !manipSub.HasCoral(); }));
+//   driverJoystick.RightTrigger().WhileTrue(frc2::cmd::Either(
+//       driveSub.AlignToProcessor(), driveSub.AlignToReef([] { return false; }),
+//       [this] { return manipSub.HasAlgae(); }));
 
-  //   driverJoystick.LeftTrigger().WhileTrue(frc2::cmd::Either(
-  //       driveSub.AlignToAlgae(), driveSub.AlignToReef([] { return true; }),
-  //       [this] { return !manipSub.HasCoral(); }));
-  //   driverJoystick.RightTrigger().WhileTrue(frc2::cmd::Either(
-  //       driveSub.AlignToProcessor(), driveSub.AlignToReef([] { return false;
-  //       }), [this] { return manipSub.HasAlgae(); }));
-
- 
 }
 
 void RobotContainer::ConfigureSysIdBinds() {
@@ -54,12 +53,14 @@ void RobotContainer::ConfigureSysIdBinds() {
   tuningTable->PutBoolean("SteerSysIdTorqueCurrent", false);
   tuningTable->PutBoolean("DriveSysId", false);
   tuningTable->PutBoolean("WheelRadius", false);
-
+  tuningTable->PutBoolean("Quasistatic", true);
+  tuningTable->PutBoolean("Forward", true);
 
   steerTuneBtn.OnTrue(
       driveSub.TuneSteerPID([this] { return !steerTuneBtn.Get(); }));
   driveTuneBtn.OnTrue(
       driveSub.TuneDrivePID([this] { return !driveTuneBtn.Get(); }));
+
 
   steerSysIdVoltsBtn.WhileTrue(SteerVoltsSysIdCommands(
       [this] { return tuningTable->GetBoolean("Forward", true); },
@@ -136,17 +137,18 @@ frc2::CommandPtr RobotContainer::WheelRadiusSysIdCommands(
 }
 
 frc2::Command* RobotContainer::GetAutonomousCommand() {
-  return autos.GetSelectedCommand();
+  //return autos.GetSelectedCommand();
+  return nullptr;
 }
 
 Drive& RobotContainer::GetDrive() {
   return driveSub;
 }
 
+
+
 str::vision::VisionSystem& RobotContainer::GetVision() {
   return vision;
 }
 
-str::SuperstructureDisplay& RobotContainer::GetSuperStructureDisplay() {
-  return display;
-}
+

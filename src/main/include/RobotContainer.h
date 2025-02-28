@@ -12,10 +12,8 @@
 #include "Autos.h"
 #include "frc/geometry/Pose2d.h"
 #include "frc2/command/button/Trigger.h"
-#include "str/SuperstructureDisplay.h"
 #include "str/vision/VisionSystem.h"
 #include "subsystems/Drive.h"
-
 
 class RobotContainer {
  public:
@@ -24,7 +22,7 @@ class RobotContainer {
   frc2::Command* GetAutonomousCommand();
   Drive& GetDrive();
   str::vision::VisionSystem& GetVision();
-  str::SuperstructureDisplay& GetSuperStructureDisplay();
+
 
  private:
   void ConfigureBindings();
@@ -36,14 +34,10 @@ class RobotContainer {
   frc2::CommandPtr DriveSysIdCommands(std::function<bool()> fwd,
                                       std::function<bool()> quasistatic);
   frc2::CommandPtr WheelRadiusSysIdCommands(std::function<bool()> fwd);
-  frc2::Trigger NoButtonsPressed();
 
   frc2::CommandXboxController driverJoystick{0};
 
-  str::SuperstructureDisplay display{};
-
   Drive driveSub{};
- 
 
   str::vision::VisionSystem vision{
       [this](const frc::Pose2d& pose, units::second_t time,

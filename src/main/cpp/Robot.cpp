@@ -25,7 +25,7 @@ Robot::Robot() {
               1 / consts::swerve::ODOM_UPDATE_RATE, 2_ms);
   wpi::WebServer::GetInstance().Start(5800,
                                       frc::filesystem::GetDeployDirectory());
-  m_container.GetSuperStructureDisplay().Draw();
+  
   pdp.ClearStickyFaults();
 }
 
@@ -41,8 +41,7 @@ void Robot::RobotPeriodic() {
   matchTimePub.Set(frc::DriverStation::GetMatchTime().value());
   battVoltagePub.Set(frc::RobotController::GetBatteryVoltage().value());
 
-  m_container.GetSuperStructureDisplay().SetRobotPose(
-      m_container.GetDrive().GetRobotPose());
+
 }
 
 void Robot::SimulationPeriodic() {
